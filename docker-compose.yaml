@@ -1,6 +1,6 @@
 services:
-  strapiApp:
-    container_name: strapiApp
+  strapi:
+    container_name: strapi
     build:
       context: .
       dockerfile: Dockerfile
@@ -14,19 +14,19 @@ services:
     networks:
       - strapi-bridge
     depends_on:
-      strapiDatabase:
+      strapiDB:
         condition: service_healthy
 
-  strapiDatabase:
-    container_name: strapiDatabase
+  strapiDB:
+    container_name: strapiDB
     restart: always
     image: postgres:16-alpine
-    ports:
-      - 5432:5432
     environment:
       POSTGRES_USER: ${DATABASE_USERNAME}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME}
+    ports:
+      - 5432:5432
     volumes:
       - strapi-data:/var/lib/postgresql/data/
     networks:
