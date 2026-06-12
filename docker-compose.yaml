@@ -1,6 +1,6 @@
 services:
-  strapi:
-    container_name: strapi
+  strapiApp:
+    container_name: strapiApp
     build:
       context: .
       dockerfile: Dockerfile
@@ -14,11 +14,11 @@ services:
     networks:
       - strapi-bridge
     depends_on:
-      strapiDB:
+      strapiDatabase:
         condition: service_healthy
 
-  strapiDB:
-    container_name: strapiDB
+  strapiDatabase:
+    container_name: strapiDatabase
     restart: always
     image: postgres:16-alpine
     environment:
