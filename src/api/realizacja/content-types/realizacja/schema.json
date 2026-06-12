@@ -1,0 +1,43 @@
+{
+  "kind": "collectionType",
+  "collectionName": "realizacje",
+  "info": {
+    "singularName": "realizacja",
+    "pluralName": "realizacje",
+    "displayName": "Realizacje"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "zdjecia": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "Kategoria": {
+      "type": "string"
+    },
+    "Lokalizacja": {
+      "type": "string"
+    },
+    "Rodzaj": {
+      "type": "string"
+    },
+    "Konstrukcja": {
+      "type": "string"
+    },
+    "Parametry": {
+      "type": "text"
+    },
+    "Info": {
+      "type": "text"
+    }
+  }
+}
