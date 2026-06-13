@@ -38,6 +38,9 @@
     },
     "Info": {
       "type": "text"
+    },
+    "Nazwa": {
+      "type": "string"
     }
   }
 }

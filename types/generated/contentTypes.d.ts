@@ -464,6 +464,7 @@ export interface ApiRealizacjaRealizacja extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     Lokalizacja: Schema.Attribute.String;
+    Nazwa: Schema.Attribute.String;
     Parametry: Schema.Attribute.Text;
     publishedAt: Schema.Attribute.DateTime;
     Rodzaj: Schema.Attribute.String;
