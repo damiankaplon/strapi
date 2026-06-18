@@ -1,8 +1,9 @@
 import type { Core } from '@strapi/strapi';
 
-// Origin(y) dopuszczone do API. Lista z env CORS_ORIGINS (po przecinku),
-// np. "https://szostak.net.pl,http://localhost:4321". Domyślnie '*' — formularz
-// kontaktowy działa wtedy z dowolnej domeny; w produkcji warto zawęzić.
+// Origins allowed to call the API. Read from the CORS_ORIGINS env var
+// (comma-separated), e.g. "https://szostak.net.pl,http://localhost:4321".
+// Defaults to '*' — the contact form then works from any domain; worth
+// narrowing in production.
 const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
   : ['*'];

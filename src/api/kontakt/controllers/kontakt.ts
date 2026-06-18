@@ -1,28 +1,60 @@
 /**
- * Kontakt — odbiera zgłoszenie z formularza wyceny (statyczna strona Astro)
- * i przekazuje je e-mailem przez Resend. Nic nie zapisujemy w bazie — endpoint
- * jest bezstanowym pośrednikiem, którego jedynym zadaniem jest trzymać klucz
- * Resend po stronie serwera (nie może trafić do przeglądarki).
+ * Kontakt — receives a quote-request submission (static Astro site) and forwards
+ * it by e-mail via Resend. Nothing is persisted in the database — this endpoint
+ * is a stateless proxy whose only job is to keep the Resend API key server-side
+ * (it must never reach the browser).
  *
- * Wymagane zmienne środowiskowe:
- *   RESEND_API_KEY      — klucz API z panelu Resend.
- *   CONTACT_FROM_EMAIL  — nadawca, na zweryfikowanej domenie
- *                         (np. "Szostak Projekt <formularz@damiankaplon.site>").
- *   CONTACT_TO_EMAIL    — adres, na który mają trafiać zgłoszenia.
+ * Required environment variables:
+ *   RESEND_API_KEY      — API key from the Resend dashboard.
+ *   CONTACT_FROM_EMAIL  — sender on a verified domain
+ *                         (e.g. "Szostak Projekt <formularz@szostak.net.pl>").
+ *   CONTACT_TO_EMAIL    — address that submissions should be delivered to.
+ *
+ * Optional anti-spam:
+ *   TURNSTILE_SECRET    — Cloudflare Turnstile secret key. When set, every
+ *                         submission must carry a valid Turnstile token,
+ *                         verified server-side before the e-mail is sent.
  */
 
 import type { Context } from 'koa';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
+const TURNSTILE_ENDPOINT = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Sprowadza wartość do oczyszczonego stringa o ograniczonej długości.
+// Coerces a value into a trimmed string capped at a maximum length.
 function clean(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
-// Ucieczka znaków HTML — treść od użytkownika trafia do maila jako HTML.
+// Verifies a Cloudflare Turnstile token against the siteverify API. `remoteip`
+// is the real client IP (CF-Connecting-IP), since behind a Cloudflare Tunnel
+// Strapi otherwise only sees the tunnel's address.
+async function verifyTurnstile(
+  secret: string,
+  token: string,
+  remoteip?: string
+): Promise<boolean> {
+  if (!token) return false;
+  const params = new URLSearchParams({ secret, response: token });
+  if (remoteip) params.append('remoteip', remoteip);
+
+  try {
+    const res = await fetch(TURNSTILE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params,
+    });
+    const data = (await res.json()) as { success?: boolean };
+    return data.success === true;
+  } catch (err) {
+    strapi.log.error(`Kontakt: Turnstile verification request failed: ${err}`);
+    return false;
+  }
+}
+
+// Escapes HTML — user-provided content is embedded into the e-mail as HTML.
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -35,11 +67,28 @@ export default {
   async send(ctx: Context) {
     const body = (ctx.request.body ?? {}) as Record<string, unknown>;
 
-    // Honeypot: ukryte pole „company". Wypełnia je tylko bot — udajemy sukces,
-    // żeby nie podpowiadać, że zgłoszenie zostało odrzucone.
+    // Honeypot: the hidden "company" field. Only bots fill it in — we fake a
+    // success response so as not to hint that the submission was rejected.
     if (clean(body.company, 100)) {
       ctx.body = { ok: true };
       return;
+    }
+
+    // Turnstile gate: enforced only when a secret is configured, so the endpoint
+    // keeps working in setups without Turnstile. A missing/invalid token is
+    // rejected before any e-mail is sent.
+    const turnstileSecret = process.env.TURNSTILE_SECRET;
+    if (turnstileSecret) {
+      const token = clean(body['cf-turnstile-response'], 5000);
+      const ip = ctx.request.header['cf-connecting-ip'];
+      const ok = await verifyTurnstile(
+        turnstileSecret,
+        token,
+        typeof ip === 'string' ? ip : undefined
+      );
+      if (!ok) {
+        return ctx.badRequest('Captcha verification failed.');
+      }
     }
 
     const name = clean(body.name, 200);
@@ -49,10 +98,10 @@ export default {
     const message = clean(body.message, 5000);
 
     if (!name || !email) {
-      return ctx.badRequest('Imię i e-mail są wymagane.');
+      return ctx.badRequest('Name and e-mail are required.');
     }
     if (!EMAIL_RE.test(email)) {
-      return ctx.badRequest('Nieprawidłowy adres e-mail.');
+      return ctx.badRequest('Invalid e-mail address.');
     }
 
     const apiKey = process.env.RESEND_API_KEY;
@@ -60,9 +109,9 @@ export default {
     const to = process.env.CONTACT_TO_EMAIL;
     if (!apiKey || !from || !to) {
       strapi.log.error(
-        'Kontakt: brak konfiguracji Resend (RESEND_API_KEY / CONTACT_FROM_EMAIL / CONTACT_TO_EMAIL).'
+        'Kontakt: missing Resend configuration (RESEND_API_KEY / CONTACT_FROM_EMAIL / CONTACT_TO_EMAIL).'
       );
-      return ctx.internalServerError('Wysyłka nie jest skonfigurowana.');
+      return ctx.internalServerError('Sending is not configured.');
     }
 
     const rows: [string, string][] = [
@@ -104,8 +153,8 @@ export default {
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      strapi.log.error(`Kontakt: Resend zwrócił ${res.status}: ${detail}`);
-      return ctx.internalServerError('Nie udało się wysłać wiadomości.');
+      strapi.log.error(`Kontakt: Resend returned ${res.status}: ${detail}`);
+      return ctx.internalServerError('Failed to send the message.');
     }
 
     ctx.body = { ok: true };

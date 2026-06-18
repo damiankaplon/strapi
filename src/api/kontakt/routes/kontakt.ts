@@ -1,10 +1,10 @@
 /**
- * Publiczna trasa formularza kontaktowego.
+ * Public route for the contact form.
  *
- * `auth: false` — endpoint jest wołany z publicznej, statycznej strony bez
- * tokena. Wyłącza to uwierzytelnianie i sprawdzanie uprawnień roli Public,
- * więc nie trzeba nic konfigurować w panelu. Przyjmuje wyłącznie POST i jest
- * obsłużony przez dedykowany kontroler (walidacja + wysyłka przez Resend).
+ * `auth: false` — the endpoint is called from the public, static site without a
+ * token. This disables authentication and the Public role's permission check,
+ * so nothing needs to be configured in the admin panel. It accepts POST only and
+ * is handled by a dedicated controller (validation + sending via Resend).
  */
 export default {
   routes: [
