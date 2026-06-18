@@ -1,0 +1,23 @@
+# Never copy the host's (Windows) installed deps into the image — they shadow
+# the clean Linux node_modules from `npm ci` and cause native-binary mismatches
+# (e.g. esbuild "Host version does not match binary version").
+node_modules
+**/node_modules
+
+# Build output / caches
+.cache
+build
+dist
+.strapi
+.tmp
+
+# Local secrets and VCS
+.env
+*.env
+.git
+.gitignore
+
+# Editor / tooling
+.vscode
+.idea
+.vfox
